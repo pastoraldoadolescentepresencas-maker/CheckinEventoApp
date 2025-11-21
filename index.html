@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-in Rápido</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+        #reader { width: 100%; max-width: 500px; margin: 0 auto; border: 2px solid #ccc; }
+        #resultado { margin-top: 20px; padding: 15px; border-radius: 8px; font-weight: bold; }
+        .sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+
+    <h1>Scanner de Presença</h1>
+
+    <div id="reader"></div>
+
+    <div id="resultado">Aguardando leitura do QR Code...</div>
+
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script> 
+    <script>
+        // ---
+        // Você pega este objeto de configuração no seu console do Firebase (Configurações do Projeto -> Seus Apps)
+        const firebaseConfig = {
+          apiKey: "AIzaSyBEN4KoSfWp_YKm1TAn4NpCOzWk1l77d7A",
+          authDomain: "lista-de-presenca-da-pa.firebaseapp.com",
+          projectId: "lista-de-presenca-da-pa",
+          // ... outros campos
+        };
+        
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        // --------------------------------------------------------
+
+        // Função de sucesso na leitura
+        function onScanSuccess(decodedText, decodedResult) {
+            // A leitura é bem-sucedida, o decodedText é o ID_EVENTO_2025-XXX
+            html5QrcodeScanner.pause(); // Pausa a câmera para processar
+
+            // Chama a função para registrar a presença no Firebase
+            registrarPresenca(decodedText);
+        }
+
+        // Função de erro na leitura
+        function onScanError(errorMessage) {
+            // Não faz nada em caso de erros temporários de leitura
+        }
+
+        // Configuração do scanner
+        var html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", { fps: 10, qrbox: 250 });
+        
+        // Inicia o scanner
+        html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+
+        // --- Função Principal de Lógica do Check-in ---
+        async function registrarPresenca(jovemID) {
+            const resultadoDiv = document.getElementById('resultado');
+            resultadoDiv.className = ''; // Limpa as classes de cor
+            resultadoDiv.innerHTML = 'Processando ID: **' + jovemID + '**...';
+
+            try {
+                const jovemRef = db.collection('jovens').doc(jovemID);
+                const doc = await jovemRef.get();
+
+                if (!doc.exists) {
+                    resultadoDiv.innerHTML = `❌ **ERRO:** ID (**${jovemID}**) não encontrado na lista.`;
+                    resultadoDiv.className = 'erro';
+                    setTimeout(() => html5QrcodeScanner.resume(), 3000); // Tenta de novo
+                    return;
+                }
+
+                const dados = doc.data();
+
+                if (dados.status === 'PRESENTE') {
+                    resultadoDiv.innerHTML = `⚠️ **ATENÇÃO:** ${dados.nome} **JÁ FEZ CHECK-IN** às ${dados.checkin_time.toDate().toLocaleTimeString()}.`;
+                    resultadoDiv.className = 'erro';
+                } else {
+                    // Atualiza o banco de dados
+                    await jovemRef.update({
+                        status: 'PRESENTE',
+                        checkin_time: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    resultadoDiv.innerHTML = `✅ **CHECK-IN OK!** Bem-vindo(a) **${dados.nome}**!`;
+                    resultadoDiv.className = 'sucesso';
+                }
+            } catch (error) {
+                console.error("Erro ao registrar presença:", error);
+                resultadoDiv.innerHTML = '❌ **ERRO GRAVE:** Falha na comunicação com o sistema.';
+                resultadoDiv.className = 'erro';
+            }
+            
+            // Espera 3 segundos antes de reativar a câmera
+            setTimeout(() => html5QrcodeScanner.resume(), 3000); 
+        }
+
+kaio30102003
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Presença - Tempo Real</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+        h1 { color: #333; }
+        #lista-jovens { width: 90%; max-width: 800px; margin: 20px auto; border-collapse: collapse; }
+        #lista-jovens th, #lista-jovens td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        #lista-jovens th { background-color: #eee; }
+        .pendente { background-color: #fce3e3; color: #cc0000; font-weight: bold; }
+        .presente { background-color: #d9f7d4; color: #008000; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Monitor de Presença em Tempo Real</h1>
+    <table id="lista-jovens">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Status</th>
+                <th>Hora Check-in</th>
+            </tr>
+        </thead>
+        <tbody>
+            </tbody>
+    </table>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script> 
+
+    <script>
+        // 🚨 COLOQUE A CONFIGURAÇÃO DO SEU FIREBASE AQUI 🚨
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEN4KoSfWp_YKm1TAn4NpCOzWk1l77d7A", 
+            authDomain: "lista-de-presenca-da-pa.firebaseapp.com", 
+            projectId: "lista-de-presenca-da-pa",
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // --------------------------------------------------------
+        // FUNÇÃO DE MONITORAMENTO EM TEMPO REAL
+        // --------------------------------------------------------
+
+        function monitorarPresenca() {
+            const tbody = document.querySelector('#lista-jovens tbody');
+
+            // .orderBy('status') força os "PRESENTE" a aparecerem primeiro
+            db.collection('jovens').orderBy('nome').onSnapshot((snapshot) => {
+                tbody.innerHTML = ''; // Limpa a lista para redesenhar
+                
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const id = doc.id;
+                    
+                    const tr = document.createElement('tr');
+                    
+                    // Define a classe CSS com base no status (para colorir a linha)
+                    tr.className = data.status === 'PRESENTE' ? 'presente' : 'pendente';
+
+                    // Formata a hora
+                    let horaCheckin = data.checkin_time 
+                        ? data.checkin_time.toDate().toLocaleTimeString() 
+                        : 'Aguardando...';
+
+                    tr.innerHTML = `
+                        <td>${id}</td>
+                        <td>${data.nome}</td>
+                        <td>${data.status}</td>
+                        <td>${horaCheckin}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }, (error) => {
+                console.error("Erro ao monitorar dados: ", error);
+                alert("Erro ao carregar o monitor. Verifique as regras do Firebase.");
+            });
+        }
+
+        // Inicia o monitoramento
+        monitorarPresenca();
+
+    </script>
+</body>
+</html>
